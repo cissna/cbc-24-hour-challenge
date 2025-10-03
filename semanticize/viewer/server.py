@@ -124,8 +124,11 @@ def get_doc_path(semanticize_dir: Path, file_path: Path, level: str) -> Path:
 
 def get_edge_path(semanticize_dir: Path, source: Path, target: Path, level: str) -> Path:
     """Get edge documentation path."""
+    # Convert paths: backend/course_grouping_service.py -> backend.course_grouping_service.py
     source_str = str(source).replace('/', '.')
     target_str = str(target).replace('/', '.')
+
+    # Edge files are named: source--TO--target.level.md
     edge_name = f"{source_str}--TO--{target_str}.{level}.md"
     return semanticize_dir / 'edges' / edge_name
 
@@ -144,10 +147,30 @@ def get_relationships(semanticize_dir: Path, file_path: Path, rel_type: str) -> 
         edge_name = edge_file.stem.replace('.technical', '')
 
         if rel_type == 'dependencies' and edge_name.startswith(file_str + '--TO--'):
-            target = edge_name.replace(file_str + '--TO--', '').replace('.', '/')
-            relationships.append(target)
+            # Extract target and convert dots back to slashes (backend.utils.py -> backend/utils.py)
+            target = edge_name.replace(file_str + '--TO--', '')
+            # Don't convert the extension - find the last segment and preserve it
+            relationships.append(convert_dots_to_path(target))
         elif rel_type == 'dependents' and '--TO--' + file_str in edge_name:
-            source = edge_name.split('--TO--')[0].replace('.', '/')
-            relationships.append(source)
+            # Extract source
+            source = edge_name.split('--TO--')[0]
+            relationships.append(convert_dots_to_path(source))
 
     return relationships
+
+
+def convert_dots_to_path(dotted_path: str) -> str:
+    """Convert dotted path back to filesystem path.
+
+    Examples:
+        backend.utils.py -> backend/utils.py
+        frontend.components.Header.tsx -> frontend/components/Header.tsx
+    """
+    # Find the file extension (last dot + letters)
+    parts = dotted_path.rsplit('.', 1)
+    if len(parts) == 2 and len(parts[1]) <= 4 and parts[1].isalnum():
+        # Has an extension, convert only the path part
+        return parts[0].replace('.', '/') + '.' + parts[1]
+    else:
+        # No extension or unusual format, convert all
+        return dotted_path.replace('.', '/')
