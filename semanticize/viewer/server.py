@@ -76,6 +76,8 @@ def create_app(project_root: Path):
 
         for level in ['technical', 'developer', 'executive']:
             edge_path = get_edge_path(app.config['SEMANTICIZE_DIR'], source_path, target_path, level)
+            print(f"Looking for edge: {edge_path}")
+            print(f"Exists: {edge_path.exists()}")
             if edge_path.exists():
                 with open(edge_path, 'r', encoding='utf-8') as f:
                     md_content = f.read()
