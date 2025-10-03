@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Semanticize Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 1rem;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .panel {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .file-explorer {
+            width: 20%;
+            border-right: 1px solid #ddd;
+            background: #f8f9fa;
+        }
+
+        .content-viewer {
+            width: 55%;
+            border-right: 1px solid #ddd;
+        }
+
+        .relationships {
+            width: 25%;
+            background: #f8f9fa;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #ddd;
+        }
+
+        .tab {
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            background: #e9ecef;
+            border: none;
+            border-radius: 4px 4px 0 0;
+        }
+
+        .tab.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .tree-item {
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            margin-left: 1rem;
+        }
+
+        .tree-item:hover {
+            background: #e9ecef;
+        }
+
+        .tree-item.selected {
+            background: #007bff;
+            color: white;
+        }
+
+        .tree-folder {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .content {
+            line-height: 1.6;
+        }
+
+        .content pre {
+            background: #f4f4f4;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+
+        .content code {
+            background: #f4f4f4;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .relationship-item {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .relationship-item:hover {
+            background: #e9ecef;
+        }
+
+        .edge-desc {
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+            font-size: 0.9rem;
+        }
+
+        h3 {
+            margin: 1rem 0 0.5rem 0;
+            color: #2c3e50;
+        }
+
+        .empty-state {
+            color: #6c757d;
+            text-align: center;
+            padding: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">Semanticize Viewer</div>
+
+    <div class="container">
+        <div class="panel file-explorer">
+            <h3>Files</h3>
+            <div id="tree"></div>
+        </div>
+
+        <div class="panel content-viewer">
+            <div class="tabs">
+                <button class="tab" data-view="code">Code</button>
+                <button class="tab active" data-view="english">English</button>
+            </div>
+
+            <div id="view-tabs" style="display: none;">
+                <div class="tabs">
+                    <button class="tab active" data-level="technical">Technical</button>
+                    <button class="tab" data-level="developer">Developer</button>
+                    <button class="tab" data-level="executive">Executive</button>
+                </div>
+            </div>
+
+            <div id="content" class="content">
+                <div class="empty-state">Select a file to view its documentation</div>
+            </div>
+        </div>
+
+        <div class="panel relationships">
+            <h3>Dependencies</h3>
+            <div id="dependencies"></div>
+
+            <h3>Dependents</h3>
+            <div id="dependents"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentFile = null;
+        let currentView = 'english';
+        let currentLevel = 'technical';
+        let fileData = null;
+
+        // Load file tree
+        fetch('/api/tree')
+            .then(r => r.json())
+            .then(tree => {
+                renderTree(tree, document.getElementById('tree'));
+            });
+
+        function renderTree(node, container, level = 0) {
+            if (node.is_file) {
+                const item = document.createElement('div');
+                item.className = 'tree-item';
+                item.textContent = node.name;
+                item.style.marginLeft = (level * 1) + 'rem';
+                item.onclick = () => loadFile(node.path);
+                container.appendChild(item);
+            } else {
+                const folder = document.createElement('div');
+                folder.className = 'tree-folder';
+                folder.textContent = '📁 ' + node.name;
+                folder.style.marginLeft = (level * 1) + 'rem';
+                container.appendChild(folder);
+
+                node.children.forEach(child => {
+                    renderTree(child, container, level + 1);
+                });
+            }
+        }
+
+        function loadFile(filepath) {
+            currentFile = filepath;
+
+            // Update selection
+            document.querySelectorAll('.tree-item').forEach(el => {
+                el.classList.remove('selected');
+                if (el.textContent === filepath.split('/').pop()) {
+                    el.classList.add('selected');
+                }
+            });
+
+            fetch(`/api/file/${filepath}`)
+                .then(r => r.json())
+                .then(data => {
+                    fileData = data;
+                    updateView();
+                    updateRelationships(data);
+                });
+        }
+
+        function updateView() {
+            const content = document.getElementById('content');
+            const viewTabs = document.getElementById('view-tabs');
+
+            if (currentView === 'code') {
+                viewTabs.style.display = 'none';
+                content.innerHTML = `<pre><code>${escapeHtml(fileData.code || 'No code available')}</code></pre>`;
+            } else {
+                viewTabs.style.display = 'block';
+                const doc = fileData[currentLevel];
+                content.innerHTML = doc || '<div class="empty-state">No documentation available for this level</div>';
+            }
+        }
+
+        function updateRelationships(data) {
+            const depsEl = document.getElementById('dependencies');
+            const deptsEl = document.getElementById('dependents');
+
+            depsEl.innerHTML = data.dependencies.length
+                ? data.dependencies.map(dep => `
+                    <div class="relationship-item" onclick="loadEdge('${currentFile}', '${dep}', this)">
+                        ${dep}
+                    </div>
+                `).join('')
+                : '<div class="empty-state">None</div>';
+
+            deptsEl.innerHTML = data.dependents.length
+                ? data.dependents.map(dept => `
+                    <div class="relationship-item" onclick="loadEdge('${dept}', '${currentFile}', this)">
+                        ${dept}
+                    </div>
+                `).join('')
+                : '<div class="empty-state">None</div>';
+        }
+
+        function loadEdge(source, target, element) {
+            // Remove existing edge descriptions
+            document.querySelectorAll('.edge-desc').forEach(el => el.remove());
+
+            fetch(`/api/edge/${source}/${target}`)
+                .then(r => r.json())
+                .then(data => {
+                    const desc = document.createElement('div');
+                    desc.className = 'edge-desc';
+                    desc.innerHTML = data[currentLevel] || 'No description available';
+                    element.appendChild(desc);
+                });
+        }
+
+        // View tabs
+        document.querySelectorAll('[data-view]').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('[data-view]').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentView = tab.dataset.view;
+                updateView();
+            };
+        });
+
+        // Level tabs
+        document.querySelectorAll('[data-level]').forEach(tab => {
+            tab.onclick = () => {
+                document.querySelectorAll('[data-level]').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentLevel = tab.dataset.level;
+                updateView();
+            };
+        });
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>

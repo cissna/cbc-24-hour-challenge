@@ -1,3 +1,12 @@
+Metadata-Version: 2.4
+Name: semanticize
+Version: 0.1.0
+Summary: Semantic codebase understanding system
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: flask>=2.0.0
+Requires-Dist: pathspec>=0.11.0
+
 # Semanticize
 
 Semantic codebase understanding system that maintains living documentation at three levels of abstraction.
