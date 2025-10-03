@@ -13,6 +13,7 @@ semanticize/commands/check.py
 semanticize/commands/fix.py
 semanticize/commands/init.py
 semanticize/commands/launch.py
+semanticize/commands/list_files.py
 semanticize/commands/setup.py
 semanticize/commands/update.py
 semanticize/core/__init__.py

@@ -20,11 +20,11 @@ def run(project_root: Path, port: int = 8080):
     # Open browser after a short delay
     def open_browser():
         time.sleep(1)
-        webbrowser.open(f'http://localhost:{port}')
+        webbrowser.open(f'http://127.0.0.1:{port}')
 
     threading.Thread(target=open_browser, daemon=True).start()
 
-    print(f"Starting Semanticize viewer at http://localhost:{port}")
+    print(f"Starting Semanticize viewer at http://127.0.0.1:{port}")
     print("Press Ctrl+C to stop")
 
-    app.run(host='localhost', port=port, debug=False)
+    app.run(host='127.0.0.1', port=port, debug=False)

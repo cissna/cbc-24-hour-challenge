@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 
 from . import __version__
-from .commands import init, update, check, launch, setup, fix
+from .commands import init, update, check, launch, setup, fix, list_files
 
 
 def main():
@@ -49,6 +49,14 @@ def main():
         help='Show what would be done without actually doing it'
     )
 
+    # List command
+    list_parser = subparsers.add_parser('list', help='List files that would be analyzed')
+    list_parser.add_argument(
+        '--show-ignored',
+        action='store_true',
+        help='Show ignore pattern test results'
+    )
+
     # Launch command
     launch_parser = subparsers.add_parser('launch', help='Launch web viewer')
     launch_parser.add_argument(
@@ -79,6 +87,8 @@ def main():
             check.run(project_root)
         elif args.command == 'fix':
             fix.run(project_root, args.dry_run)
+        elif args.command == 'list':
+            list_files.run(project_root, args.show_ignored)
         elif args.command == 'launch':
             launch.run(project_root, args.port)
     except KeyboardInterrupt:
