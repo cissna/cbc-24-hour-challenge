@@ -273,7 +273,11 @@
             // Remove existing edge descriptions
             document.querySelectorAll('.edge-desc').forEach(el => el.remove());
 
-            fetch(`/api/edge/${source}/${target}`)
+            // URL encode to handle slashes in paths
+            const encodedSource = encodeURIComponent(source);
+            const encodedTarget = encodeURIComponent(target);
+
+            fetch(`/api/edge/${encodedSource}/${encodedTarget}`)
                 .then(r => r.json())
                 .then(data => {
                     const desc = document.createElement('div');

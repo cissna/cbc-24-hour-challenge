@@ -2,6 +2,7 @@
 
 from flask import Flask, render_template, send_from_directory, jsonify
 from pathlib import Path
+from urllib.parse import unquote
 import json
 import markdown
 
@@ -65,6 +66,10 @@ def create_app(project_root: Path):
             'developer': None,
             'executive': None
         }
+
+        # URL decode the paths
+        source = unquote(source)
+        target = unquote(target)
 
         source_path = Path(source)
         target_path = Path(target)
