@@ -10,20 +10,27 @@ from ..core.llm import LLMInterface, PromptBuilder
 from ..core.state import StateManager
 
 
-def run(project_root: Path):
+def run(project_root: Path, dry_run: bool = False):
     """Run the fix command to complete partial initialization."""
     semanticize_dir = project_root / '.semanticize'
     if not semanticize_dir.exists():
         print("Error: Not a Semanticize project. Run 'semanticize init' first.")
         return
 
+    if dry_run:
+        print("=== DRY RUN MODE ===")
+        print("No files will be created or modified\n")
+
     print("Checking project state...")
 
     # Initialize components
     storage = Storage(project_root)
     state_manager = StateManager(semanticize_dir)
-    llm = LLMInterface(semanticize_dir)
     prompt_builder = PromptBuilder()
+
+    # Only initialize LLM if not dry run
+    if not dry_run:
+        llm = LLMInterface(semanticize_dir)
 
     # Check if already complete
     if state_manager.is_complete():
@@ -33,6 +40,58 @@ def run(project_root: Path):
     # Show current state
     print("\nCurrent state:")
     print(state_manager.get_progress_summary())
+
+    if dry_run:
+        # Additional dry run details
+        discovery = FileDiscovery(project_root)
+        detector = DependencyDetector(project_root)
+
+        files = discovery.discover_files()
+        dep_graph = detector.build_dependency_graph(files)
+
+        incomplete_files = state_manager.get_incomplete_files()
+        missing_edges = state_manager.get_missing_edges(dep_graph)
+        missing_summaries = state_manager.get_missing_project_summaries()
+
+        # Calculate work needed
+        file_level_calls = sum(len(levels) for _, levels in incomplete_files)
+        edge_calls = len(missing_edges) * 3  # 3 levels per edge
+        summary_calls = len(missing_summaries)
+        total_calls = file_level_calls + edge_calls + summary_calls
+
+        print(f"\n=== Work Needed ===")
+        print(f"Incomplete files: {len(incomplete_files)}")
+        if incomplete_files:
+            print("\nFiles needing completion:")
+            for file, levels in incomplete_files[:10]:
+                print(f"  - {file}: {', '.join(levels)}")
+            if len(incomplete_files) > 10:
+                print(f"  ... and {len(incomplete_files) - 10} more")
+
+        print(f"\nMissing edges: {len(missing_edges)}")
+        if missing_edges:
+            print("\nEdges needing documentation:")
+            for source, target in missing_edges[:10]:
+                print(f"  - {source} → {target}")
+            if len(missing_edges) > 10:
+                print(f"  ... and {len(missing_edges) - 10} more")
+
+        if missing_summaries:
+            print(f"\nMissing project summaries: {', '.join(missing_summaries)}")
+
+        print(f"\n=== Estimated Work ===")
+        print(f"LLM calls needed:")
+        print(f"  - File level documentation: {file_level_calls}")
+        print(f"  - Edge documentation: {edge_calls} ({len(missing_edges)} edges × 3 levels)")
+        print(f"  - Project summaries: {summary_calls}")
+        print(f"  - TOTAL: {total_calls} LLM calls")
+        print(f"\nEstimated cost (rough):")
+        print(f"  - At ~$0.01/call: ${total_calls * 0.01:.2f}")
+        print(f"  - At ~$0.05/call: ${total_calls * 0.05:.2f}")
+        print(f"\n(Note: Actual costs depend on your model and token usage)")
+        print(f"\nTo proceed with fix, run:")
+        print(f"  semanticize fix")
+        return
 
     # Ask for confirmation
     response = input("\nContinue fixing? [y/N] ")

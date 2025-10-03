@@ -137,6 +137,26 @@ your-project/
 - **Web viewer** for easy browsing
 - **Dynamic ignore** system respects .gitignore
 
+## Migrating from Partial Initialization
+
+If you have an existing `.semanticize` directory from before state tracking was added, you can generate a state file:
+
+```bash
+# From the project root (where .semanticize exists)
+python scripts/create_state_from_existing.py
+
+# Or specify the path
+python scripts/create_state_from_existing.py /path/to/your/project/.semanticize
+```
+
+This will scan your existing documentation and create `state.json`, then you can run:
+
+```bash
+semanticize fix
+```
+
+to complete any missing documentation.
+
 ## Development
 
 This project was created for the CBC 24-hour challenge.

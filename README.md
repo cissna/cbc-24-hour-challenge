@@ -82,11 +82,29 @@ Opens a web interface at http://localhost:8080 where you can:
 ## Commands
 
 - **`semanticize setup`**: Configure API settings (base URL, API key, model)
-- **`semanticize init`**: Analyze codebase and generate initial documentation
-- **`semanticize fix`**: Resume partial/interrupted initialization
+- **`semanticize init [--dry-run]`**: Analyze codebase and generate initial documentation
+- **`semanticize fix [--dry-run]`**: Resume partial/interrupted initialization
 - **`semanticize update`**: Update documentation after code changes
 - **`semanticize check`**: Check for documentation inconsistencies
 - **`semanticize launch`**: Start web viewer
+
+### Dry Run Mode
+
+Use `--dry-run` to preview what will happen without making changes:
+
+```bash
+# See what files will be analyzed and estimated cost
+semanticize init --dry-run
+
+# See what work remains to complete initialization
+semanticize fix --dry-run
+```
+
+This shows:
+- Files that will be processed
+- Dependencies detected
+- Number of LLM calls needed
+- Rough cost estimates
 
 ## How It Works
 

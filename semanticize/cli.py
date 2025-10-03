@@ -29,6 +29,11 @@ def main():
         type=Path,
         help='Path to existing project description to bootstrap analysis'
     )
+    init_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be done without actually doing it'
+    )
 
     # Update command
     subparsers.add_parser('update', help='Update documentation after code changes')
@@ -37,7 +42,12 @@ def main():
     subparsers.add_parser('check', help='Check for inconsistencies')
 
     # Fix command
-    subparsers.add_parser('fix', help='Resume partial initialization')
+    fix_parser = subparsers.add_parser('fix', help='Resume partial initialization')
+    fix_parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Show what would be done without actually doing it'
+    )
 
     # Launch command
     launch_parser = subparsers.add_parser('launch', help='Launch web viewer')
@@ -62,13 +72,13 @@ def main():
         if args.command == 'setup':
             setup.run(project_root)
         elif args.command == 'init':
-            init.run(project_root, args.given_description)
+            init.run(project_root, args.given_description, args.dry_run)
         elif args.command == 'update':
             update.run(project_root)
         elif args.command == 'check':
             check.run(project_root)
         elif args.command == 'fix':
-            fix.run(project_root)
+            fix.run(project_root, args.dry_run)
         elif args.command == 'launch':
             launch.run(project_root, args.port)
     except KeyboardInterrupt:

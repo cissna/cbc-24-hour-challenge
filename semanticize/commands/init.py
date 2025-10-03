@@ -13,8 +13,12 @@ from ..core.llm import LLMInterface, PromptBuilder
 from ..core.state import StateManager
 
 
-def run(project_root: Path, given_description: Optional[Path] = None):
+def run(project_root: Path, given_description: Optional[Path] = None, dry_run: bool = False):
     """Run the init command."""
+    if dry_run:
+        print("=== DRY RUN MODE ===")
+        print("No files will be created or modified\n")
+
     print("Initializing Semanticize...")
 
     # Initialize components
@@ -48,9 +52,55 @@ def run(project_root: Path, given_description: Optional[Path] = None):
         print("No files to analyze. Exiting.")
         return
 
+    # Show file list in dry run
+    if dry_run:
+        print("\nFiles to be analyzed:")
+        for i, f in enumerate(files, 1):
+            print(f"  {i}. {f}")
+
     # Build dependency graph
-    print("Building dependency graph...")
+    print("\nBuilding dependency graph...")
     dep_graph = detector.build_dependency_graph(files)
+
+    # Show dependency summary
+    total_edges = sum(len(deps) for deps in dep_graph.values())
+    print(f"Found {total_edges} dependencies")
+
+    if dry_run:
+        print("\nDependency breakdown:")
+        files_with_deps = [(f, deps) for f, deps in dep_graph.items() if deps]
+        files_with_deps.sort(key=lambda x: len(x[1]), reverse=True)
+        for f, deps in files_with_deps[:10]:
+            print(f"  {f}: {len(deps)} dependencies")
+            for dep in deps[:3]:
+                print(f"    → {dep}")
+            if len(deps) > 3:
+                print(f"    ... and {len(deps) - 3} more")
+        if len(files_with_deps) > 10:
+            print(f"  ... and {len(files_with_deps) - 10} more files with dependencies")
+
+    if dry_run:
+        # Calculate costs
+        total_lines = sum(discovery.count_lines(f) for f in files)
+        file_docs = len(files) * 3  # technical, developer, executive
+        edge_docs = total_edges * 3  # same for edges
+        project_docs = 3
+        total_llm_calls = file_docs + edge_docs + project_docs
+
+        print(f"\n=== Estimated Work ===")
+        print(f"Total lines of code: {total_lines:,}")
+        print(f"LLM calls needed:")
+        print(f"  - File documentation: {file_docs} ({len(files)} files × 3 levels)")
+        print(f"  - Edge documentation: {edge_docs} ({total_edges} edges × 3 levels)")
+        print(f"  - Project summaries: {project_docs}")
+        print(f"  - TOTAL: {total_llm_calls} LLM calls")
+        print(f"\nEstimated cost (rough):")
+        print(f"  - At ~$0.01/call: ${total_llm_calls * 0.01:.2f}")
+        print(f"  - At ~$0.05/call: ${total_llm_calls * 0.05:.2f}")
+        print(f"\n(Note: Actual costs depend on your model and token usage)")
+        print(f"\nTo proceed with initialization, run:")
+        print(f"  semanticize init")
+        return
 
     # Mark files as discovered in state
     state_manager.mark_files_discovered(files)
