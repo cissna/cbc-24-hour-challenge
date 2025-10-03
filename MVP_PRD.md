@@ -64,6 +64,8 @@ project/
         └── src.main.py--TO--src.models.user.py.executive.md
 ```
 
+**Storage Structure Rationale**: The markdown files mirror the directory structure for intuitive navigation. Edges use a consistent naming pattern for bidirectional relationships. During runtime, this is loaded into an in-memory graph data structure for efficient traversal and update decisions.
+
 #### 4.2 Abstraction Levels Defined
 
 **Technical Level**
@@ -110,6 +112,15 @@ project/
 - Single file at technical level only
 - Detailed technical explanations of issues
 - Referenced by file descriptions at all levels
+- **Format**:
+```markdown
+## Inconsistency: Authentication Flow Broken
+**Files Involved**: src/auth.py, src/user.py
+**Triggered By**: Removal of hash_password() from src/utils.py
+**Reason**: auth.py expects hash_password() to exist in utils.py for user login, but this function was removed in the latest changes. The authentication flow can no longer hash passwords before comparison.
+**Change Summary**: utils.py was refactored to remove cryptographic functions, breaking downstream authentication logic.
+---
+```
 
 ### 5. Functional Requirements
 
@@ -134,6 +145,8 @@ semanticize --version
 semanticize --help
 ```
 
+**Given Description Option**: The `--given-description` flag allows bootstrapping with an existing description to save time and tokens on large codebases. It trusts the provided description as ground truth and uses it as context while analyzing files, significantly reducing the analysis burden.
+
 Note: Abstraction levels are not exposed in CLI as they're for information retrieval only.
 
 #### 5.2 Core Operations with Multi-Level Support
@@ -145,7 +158,7 @@ Updated process for three levels:
 1. **Discovery Phase** (unchanged)
    - Scan project directory structure
    - Apply ignore rules
-   - Build file list
+   - Build file list with line counts for progress tracking
 
 2. **Deep Analysis Phase**
    - Process files starting from dependency leaves
@@ -160,6 +173,11 @@ Updated process for three levels:
    - Technical: Full architectural documentation
    - Developer: System overview and component relationships
    - Executive: What the system does and why
+
+4. **Progress Reporting**
+   - Show weighted progress bar: `[=====>    ] 45% (23/51 files)`
+   - Weight by file size (lines of code)
+   - Update in real-time
 
 **Update (`semanticize update`)**
 
@@ -176,7 +194,7 @@ Enhanced propagation with level-aware updates:
    c) If yes to (b), do we need to update executive level?
    ```
 
-3. **Propagation Algorithm**
+3. **Propagation Algorithm with Detailed Example**
    ```
    For each changed file F:
      Determine update levels needed for F
@@ -190,11 +208,24 @@ Enhanced propagation with level-aware updates:
        If NO:
          Do not propagate further on this path
    ```
+   
+   **Example Scenario**: File A imports a print function from File B
+   1. Developer fixes a math typo in File A
+   2. System examines edge A--TO--B: "File A uses print_result() from File B for output"
+   3. System evaluates: "Does fixing a math typo affect how A uses B's print function?"
+   4. Answer: No - the relationship remains the same
+   5. System does NOT examine File B or any of its dependencies
+   6. Propagation stops, saving time and preserving accuracy
 
 4. **Regeneration Phase**
    - Regenerate required levels for marked files
    - Use technical level as source of truth
    - Maintain consistency across levels
+   - **Consistency Instructions**:
+     - "Maintain all accurate information from the previous version"
+     - "Update only what has changed due to code modifications"
+     - "Do not remove correct information or introduce variations for style"
+     - "Focus on accuracy over variety in phrasing"
 
 5. **Inconsistency Handling**
    - Detect at technical level
@@ -262,7 +293,50 @@ Enhanced propagation with level-aware updates:
 
 **Rationale**: Changes flow upward through abstraction levels. Technical changes don't always affect developer understanding, and developer changes don't always affect executive summaries.
 
-#### 6.2 Prompt Engineering for Levels
+#### 6.2 Dependency Detection Strategy
+
+**For Python (MVP Focus):**
+
+1. **Explicit Dependencies**
+   - Use Python's `ast` module to parse import statements
+   - Track both `import` and `from...import` patterns
+   - Handle relative and absolute imports
+   - Build directed graph of explicit dependencies
+
+2. **Semantic Dependencies**
+   - LLM analysis to find non-import relationships
+   - Examples: shared constants, implicit protocols, duck typing
+   - Mark these separately from explicit imports
+   - Include in edge descriptions with relationship type
+
+3. **Graph Construction**
+   - Nodes: All Python files in project
+   - Edges: Both explicit and semantic dependencies
+   - Attributes: Relationship descriptions, last updated timestamp
+   - Stored in memory during operation, persisted to markdown
+
+**Future Language Support:**
+- Design allows language-agnostic operation
+- LLMs can understand most languages
+- Only dependency detection needs language-specific logic
+
+#### 6.3 LLM Integration Details
+
+**Output Format Validation**
+All LLM responses must follow:
+```
+[filename]:
+```markdown
+[content here]
+```
+
+The system:
+- Allows LLM to "think out loud" before the marker
+- Validates presence of filename and code fence markers
+- Retries with clarification if format is incorrect (max 3 attempts)
+- Prevents partial updates on failure
+
+#### 6.4 Prompt Engineering for Levels
 
 **Technical Level Prompts**:
 - "Provide comprehensive technical documentation"
@@ -280,7 +354,7 @@ Enhanced propagation with level-aware updates:
 - "Focus on business value and purpose"
 - "Assume reader has no programming knowledge"
 
-#### 6.3 Consistency Across Levels
+#### 6.5 Consistency Across Levels
 
 **Generation Order**:
 1. Always generate technical first (most complete information)
@@ -292,18 +366,39 @@ Enhanced propagation with level-aware updates:
 - Instruction: "Maintain consistency with technical level as source of truth"
 - Validate that higher levels don't contradict lower levels
 
+#### 6.6 Dynamic Ignore System
+
+**Default Behavior:**
+- Respect all .gitignore patterns
+- Common non-code patterns (*.jpg, *.png, etc.)
+- Build directories and cache folders
+
+**AI-Driven Ignoring:**
+- Before analyzing a file, LLM can recognize non-code content
+- Automatically adds to .semanticizeignore
+- Example: "Detected binary file", "Detected data file"
+- Prevents wasted tokens on irrelevant files
+
+**Manual Overrides:**
+- Users can edit .semanticizeignore directly
+- Can force inclusion of normally ignored files
+- Useful for configuration files that affect code behavior
+
 ### 7. MVP Scope (Updated)
 
 #### 7.1 Included in MVP
 
 **Core Functionality**:
 - Three abstraction levels for all documents
-- Python language support
+- Python language support with AST-based dependency detection
 - Level-aware update propagation
 - CLI interface (no level selection needed)
 - Basic web viewer with level toggle
 - Technical level as source of truth
 - Inconsistency detection at technical level
+- Gemini CLI integration for LLM operations
+- Progress reporting with weighted progress bar
+- Dynamic ignore system
 
 **Web Viewer MVP**:
 - Local-only server
@@ -313,6 +408,11 @@ Enhanced propagation with level-aware updates:
 - Relationship panel with expandable descriptions
 - Static file serving (no backend API)
 
+**Performance Targets**:
+- < 5 minutes for 100-file codebase initial analysis
+- < 30 seconds per commit for updates
+- Efficient propagation to minimize unnecessary regeneration
+
 #### 7.2 Future Enhancements
 
 - Search across all levels
@@ -321,6 +421,9 @@ Enhanced propagation with level-aware updates:
 - API for retrieving specific levels
 - Visualization of relationships at different levels
 - Mobile-optimized web viewer
+- Multiple LLM provider support
+- Real-time file watching
+- Git hook templates
 
 ### 8. Success Criteria (Updated)
 
@@ -330,8 +433,63 @@ Enhanced propagation with level-aware updates:
 4. **Technical Accuracy**: Technical level captures all important details
 5. **Executive Clarity**: Executive level readable by non-programmers
 6. **Navigation**: Web viewer allows easy browsing at preferred level
+7. ** Performance**: Meets targets for analysis and update times
 
-### 9. Examples of Multi-Level Documentation
+### 9. Error Handling
+
+**LLM Failures:**
+- Clear error message indicating which file failed
+- No partial updates - transaction-like behavior
+- Suggestion to retry with --verbose flag
+- Log problematic prompts for debugging
+
+**Malformed LLM Responses:**
+- Retry with clarified format instructions
+- Maximum 3 retry attempts
+- Save raw response for debugging
+- Clear error message if all retries fail
+
+**File System Issues:**
+- Skip inaccessible files with warning
+- Continue processing other files
+- Report summary of skipped files at end
+- Non-zero exit code if critical files skipped
+
+**Large File Handling:**
+- Warn when files exceed token limits
+- Attempt chunking strategies (future enhancement)
+- Allow manual splitting of large files
+- Document limitations in error message
+
+### 10. Integration Patterns
+
+**Manual Trigger (MVP):**
+```bash
+# Developer manually runs after changes
+$ semanticize update
+```
+
+**Git Hook Integration (User Configured):**
+```bash
+# In .git/hooks/post-commit
+#!/bin/sh
+semanticize update
+```
+
+**AI Tool Integration:**
+```bash
+# AI coding assistant checks before making changes
+$ semanticize check || echo "Warning: Inconsistencies detected"
+# AI can read inconsistencies.md to understand issues
+```
+
+**File Watcher (Future):**
+```bash
+# Automatic updates on file save
+$ semanticize watch
+```
+
+### 11. Examples of Multi-Level Documentation
 
 **File: src/auth.py**
 
@@ -368,5 +526,3 @@ User security features rely on shared utility components.
 ```
 
 ---
-
-This updated PRD fully integrates the three-level abstraction system throughout the project, ensuring that different audiences can understand the codebase at the appropriate level of detail. The addition of the MVP web viewer provides a practical interface for browsing these multiple levels of documentation.
