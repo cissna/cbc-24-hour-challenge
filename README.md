@@ -2,6 +2,9 @@
 
 Semantic codebase understanding system that maintains living documentation at three levels of abstraction.
 
+## Demo
+https://youtu.be/DBNMkTBflPI
+
 ## Overview
 
 Semanticize analyzes your codebase and generates comprehensive documentation at three levels:
