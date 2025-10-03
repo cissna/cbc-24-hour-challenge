@@ -10,12 +10,17 @@ import json
 import sys
 from pathlib import Path
 
+# Import from semanticize to discover current files
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from semanticize.core.discovery import FileDiscovery
+
 
 def create_state_from_existing(semanticize_dir: Path):
     """Generate state.json by scanning existing documentation."""
 
     files_dir = semanticize_dir / 'files'
     edges_dir = semanticize_dir / 'edges'
+    project_root = semanticize_dir.parent
 
     if not semanticize_dir.exists():
         print(f"Error: {semanticize_dir} does not exist")
@@ -23,10 +28,26 @@ def create_state_from_existing(semanticize_dir: Path):
 
     print(f"Scanning {semanticize_dir}...")
 
-    # Track file states
-    file_states = {}
+    # Discover all current files in the project
+    print("Discovering current files in project...")
+    discovery = FileDiscovery(project_root)
+    current_files = discovery.discover_files()
+    print(f"Found {len(current_files)} files in current codebase")
 
-    # Scan files directory
+    # Track file states - initialize all current files
+    file_states = {}
+    for file in current_files:
+        file_states[str(file)] = {
+            'path': str(file),
+            'technical_done': False,
+            'developer_done': False,
+            'executive_done': False,
+            'edges_done': []
+        }
+
+    # Scan existing documentation and mark what's been done
+    print("Scanning existing documentation...")
+    docs_found = 0
     if files_dir.exists():
         for doc_file in files_dir.rglob('*.md'):
             # Parse filename: path/to/file.py.technical.md
@@ -48,21 +69,19 @@ def create_state_from_existing(semanticize_dir: Path):
             # Reconstruct the original file path
             file_path = str(relative_to_files.parent / original_name)
 
-            # Initialize file state if needed
-            if file_path not in file_states:
-                file_states[file_path] = {
-                    'path': file_path,
-                    'technical_done': False,
-                    'developer_done': False,
-                    'executive_done': False,
-                    'edges_done': []
-                }
+            # Only mark as done if this file still exists in current codebase
+            if file_path in file_states:
+                file_states[file_path][f'{level}_done'] = True
+                docs_found += 1
+            else:
+                print(f"  Warning: Found docs for {file_path} but file no longer exists in codebase")
 
-            # Mark level as done
-            file_states[file_path][f'{level}_done'] = True
+    print(f"Found {docs_found} existing documentation files")
 
     # Scan edges directory
+    print("Scanning existing edge documentation...")
     edges_by_source = {}
+    edges_found = 0
     if edges_dir.exists():
         for edge_file in edges_dir.glob('*.technical.md'):
             # Parse edge filename: source.path--TO--target.path.technical.md
@@ -77,15 +96,24 @@ def create_state_from_existing(semanticize_dir: Path):
             source_path = source_str.replace('.', '/')
             target_path = target_str.replace('.', '/')
 
-            if source_path not in edges_by_source:
-                edges_by_source[source_path] = []
-
-            edges_by_source[source_path].append(target_path)
+            # Only track edges where both files still exist
+            if source_path in file_states and target_path in file_states:
+                if source_path not in edges_by_source:
+                    edges_by_source[source_path] = []
+                edges_by_source[source_path].append(target_path)
+                edges_found += 1
+            else:
+                if source_path not in file_states:
+                    print(f"  Warning: Found edge for {source_path} but file no longer exists")
+                if target_path not in file_states:
+                    print(f"  Warning: Found edge to {target_path} but file no longer exists")
 
     # Add edges to file states
     for source_path, targets in edges_by_source.items():
         if source_path in file_states:
             file_states[source_path]['edges_done'] = targets
+
+    print(f"Found {edges_found} existing edge documentation files")
 
     # Check project summaries
     project_summaries = {
