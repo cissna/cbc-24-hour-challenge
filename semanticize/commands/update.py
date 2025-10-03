@@ -25,7 +25,7 @@ def run(project_root: Path):
     discovery = FileDiscovery(project_root)
     detector = DependencyDetector(project_root)
     storage = Storage(project_root)
-    llm = LLMInterface()
+    llm = LLMInterface(semanticize_dir)
     prompt_builder = PromptBuilder()
 
     # Phase 1: Change Detection

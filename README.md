@@ -14,7 +14,7 @@ The system uses a graph-based approach to intelligently propagate changes and ma
 ## Prerequisites
 
 - Python 3.8+
-- `gemini` CLI tool installed and in PATH
+- API key for an OpenAI-compatible LLM service (OpenRouter, OpenAI, etc.)
 
 ## Installation
 
@@ -27,9 +27,17 @@ source venv/bin/activate
 pip install -e .
 ```
 
-## Usage
+## Quick Start
 
-### Initialize a project
+### 1. Configure API
+
+```bash
+semanticize setup
+```
+
+Choose your provider (OpenRouter, OpenAI, or custom) and enter your API credentials.
+
+### 2. Initialize a project
 
 ```bash
 # Navigate to your codebase
@@ -42,19 +50,24 @@ semanticize init
 semanticize init --given-description path/to/description.md
 ```
 
-### Update after code changes
+If initialization is interrupted, resume with:
+```bash
+semanticize fix
+```
+
+### 3. Update after code changes
 
 ```bash
 semanticize update
 ```
 
-### Check for inconsistencies
+### 4. Check for inconsistencies
 
 ```bash
 semanticize check
 ```
 
-### Launch web viewer
+### 5. Launch web viewer
 
 ```bash
 semanticize launch
@@ -65,6 +78,15 @@ Opens a web interface at http://localhost:8080 where you can:
 - Toggle between code and documentation
 - Switch between abstraction levels
 - View file relationships
+
+## Commands
+
+- **`semanticize setup`**: Configure API settings (base URL, API key, model)
+- **`semanticize init`**: Analyze codebase and generate initial documentation
+- **`semanticize fix`**: Resume partial/interrupted initialization
+- **`semanticize update`**: Update documentation after code changes
+- **`semanticize check`**: Check for documentation inconsistencies
+- **`semanticize launch`**: Start web viewer
 
 ## How It Works
 
@@ -81,6 +103,8 @@ your-project/
 ├── src/
 │   └── your code...
 └── .semanticize/
+    ├── config.json           # API configuration
+    ├── state.json            # Initialization state tracking
     ├── description.technical.md
     ├── description.developer.md
     ├── description.executive.md
@@ -94,6 +118,8 @@ your-project/
 ## Features
 
 - **Three abstraction levels** for different audiences
+- **OpenAI-compatible API** - works with OpenRouter, OpenAI, and any compatible service
+- **State tracking** - resume interrupted initialization with `fix` command
 - **Intelligent propagation** - only updates what's necessary
 - **Dependency tracking** via AST analysis (Python)
 - **Inconsistency detection** when code and docs diverge

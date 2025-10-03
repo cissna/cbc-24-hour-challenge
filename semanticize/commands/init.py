@@ -10,6 +10,7 @@ from ..core.dependency import DependencyDetector
 from ..core.graph import CodeGraph
 from ..core.storage import Storage
 from ..core.llm import LLMInterface, PromptBuilder
+from ..core.state import StateManager
 
 
 def run(project_root: Path, given_description: Optional[Path] = None):
@@ -21,12 +22,15 @@ def run(project_root: Path, given_description: Optional[Path] = None):
     detector = DependencyDetector(project_root)
     graph = CodeGraph()
     storage = Storage(project_root)
-    llm = LLMInterface()
-    prompt_builder = PromptBuilder()
 
     # Create .semanticize directory
     storage.initialize()
     print(f"Created {storage.semanticize_dir}")
+
+    # Initialize LLM with config
+    llm = LLMInterface(storage.semanticize_dir)
+    prompt_builder = PromptBuilder()
+    state_manager = StateManager(storage.semanticize_dir)
 
     # Load context if provided
     context = None
@@ -47,6 +51,9 @@ def run(project_root: Path, given_description: Optional[Path] = None):
     # Build dependency graph
     print("Building dependency graph...")
     dep_graph = detector.build_dependency_graph(files)
+
+    # Mark files as discovered in state
+    state_manager.mark_files_discovered(files)
 
     # Calculate total lines for progress
     total_lines = sum(discovery.count_lines(f) for f in files)
@@ -95,9 +102,11 @@ def run(project_root: Path, given_description: Optional[Path] = None):
             storage.write_file_doc(file, 'technical', technical_doc)
             file_descriptions['technical'][file] = technical_doc
             graph.mark_file_levels(file, True, False, False)
+            state_manager.mark_file_level_complete(file, 'technical')
         except Exception as e:
             print(f"\nError analyzing {file} (technical): {e}")
-            continue
+            print("Run 'semanticize fix' to resume from this point.")
+            return
 
         # Developer level
         prompt = prompt_builder.build_file_analysis_prompt(
@@ -108,9 +117,11 @@ def run(project_root: Path, given_description: Optional[Path] = None):
             storage.write_file_doc(file, 'developer', developer_doc)
             file_descriptions['developer'][file] = developer_doc
             graph.mark_file_levels(file, True, True, False)
+            state_manager.mark_file_level_complete(file, 'developer')
         except Exception as e:
             print(f"\nError analyzing {file} (developer): {e}")
-            continue
+            print("Run 'semanticize fix' to resume from this point.")
+            return
 
         # Executive level
         prompt = prompt_builder.build_file_analysis_prompt(
@@ -121,9 +132,11 @@ def run(project_root: Path, given_description: Optional[Path] = None):
             storage.write_file_doc(file, 'executive', executive_doc)
             file_descriptions['executive'][file] = executive_doc
             graph.mark_file_levels(file, True, True, True)
+            state_manager.mark_file_level_complete(file, 'executive')
         except Exception as e:
             print(f"\nError analyzing {file} (executive): {e}")
-            continue
+            print("Run 'semanticize fix' to resume from this point.")
+            return
 
         # Generate edge descriptions
         for dep in dependencies:
@@ -153,6 +166,7 @@ def run(project_root: Path, given_description: Optional[Path] = None):
                     storage.write_edge_doc(file, dep, 'executive', edge_doc)
 
                     graph.mark_edge_levels(file, dep, True, True, True)
+                    state_manager.mark_edge_complete(file, dep)
 
                 except Exception as e:
                     print(f"\nError analyzing edge {file} -> {dep}: {e}")
@@ -173,8 +187,14 @@ def run(project_root: Path, given_description: Optional[Path] = None):
         try:
             _, project_doc = llm.query_with_retry(prompt, f"description.{level}.md")
             storage.write_project_doc(level, project_doc)
+            state_manager.mark_project_summary_complete(level)
         except Exception as e:
             print(f"Error generating {level} project summary: {e}")
+            print("Run 'semanticize fix' to resume from this point.")
+            return
+
+    # Mark as fully initialized
+    state_manager.mark_initialized()
 
     print(f"\n✓ Initialization complete!")
     print(f"  - Analyzed {len(files)} files")

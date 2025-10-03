@@ -1,18 +1,69 @@
-"""LLM interface using gemini subprocess."""
+"""LLM interface supporting both OpenAI API and legacy gemini CLI."""
 
 import subprocess
 import re
 from typing import Optional, Tuple
 from pathlib import Path
+from .config import ConfigManager, APIConfig
 
 
 class LLMInterface:
-    """Interface to interact with LLM via gemini CLI."""
+    """Interface to interact with LLM via OpenAI-compatible API or legacy gemini CLI."""
 
     MAX_RETRIES = 3
 
+    def __init__(self, semanticize_dir: Optional[Path] = None):
+        """Initialize LLM interface.
+
+        Args:
+            semanticize_dir: Path to .semanticize directory for loading config
+        """
+        self.config = None
+        self.client = None
+
+        if semanticize_dir:
+            config_manager = ConfigManager(semanticize_dir)
+            self.config = config_manager.load()
+
+            if self.config and not self.config.use_legacy_cli:
+                # Initialize OpenAI client
+                try:
+                    from openai import OpenAI
+                    self.client = OpenAI(
+                        api_key=self.config.api_key,
+                        base_url=self.config.base_url
+                    )
+                except ImportError:
+                    raise Exception("openai package not installed. Run: pip install openai")
+
     def query(self, prompt: str) -> str:
         """Send a prompt to the LLM and get response."""
+        # Use API if configured
+        if self.client and self.config:
+            return self._query_api(prompt)
+
+        # Fall back to legacy gemini CLI
+        return self._query_cli(prompt)
+
+    def _query_api(self, prompt: str) -> str:
+        """Query using OpenAI-compatible API."""
+        try:
+            response = self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4000
+            )
+
+            return response.choices[0].message.content.strip()
+
+        except Exception as e:
+            raise Exception(f"API query failed: {str(e)}")
+
+    def _query_cli(self, prompt: str) -> str:
+        """Query using legacy gemini CLI."""
         try:
             result = subprocess.run(
                 ['gemini', '-p', prompt],
@@ -29,7 +80,7 @@ class LLMInterface:
         except subprocess.TimeoutExpired:
             raise Exception("LLM query timed out after 5 minutes")
         except FileNotFoundError:
-            raise Exception("gemini command not found. Please ensure gemini CLI is installed and in PATH")
+            raise Exception("gemini command not found. Please run 'semanticize setup' to configure API access")
 
     def extract_markdown_content(self, response: str, filename_hint: Optional[str] = None) -> Optional[str]:
         """Extract markdown content from LLM response.

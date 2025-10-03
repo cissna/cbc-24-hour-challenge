@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 
 from . import __version__
-from .commands import init, update, check, launch
+from .commands import init, update, check, launch, setup, fix
 
 
 def main():
@@ -18,6 +18,9 @@ def main():
     parser.add_argument('--version', action='version', version=f'semanticize {__version__}')
 
     subparsers = parser.add_subparsers(dest='command', help='Command to run')
+
+    # Setup command
+    subparsers.add_parser('setup', help='Configure API settings')
 
     # Init command
     init_parser = subparsers.add_parser('init', help='Initialize a new Semanticize project')
@@ -32,6 +35,9 @@ def main():
 
     # Check command
     subparsers.add_parser('check', help='Check for inconsistencies')
+
+    # Fix command
+    subparsers.add_parser('fix', help='Resume partial initialization')
 
     # Launch command
     launch_parser = subparsers.add_parser('launch', help='Launch web viewer')
@@ -53,12 +59,16 @@ def main():
 
     # Execute command
     try:
-        if args.command == 'init':
+        if args.command == 'setup':
+            setup.run(project_root)
+        elif args.command == 'init':
             init.run(project_root, args.given_description)
         elif args.command == 'update':
             update.run(project_root)
         elif args.command == 'check':
             check.run(project_root)
+        elif args.command == 'fix':
+            fix.run(project_root)
         elif args.command == 'launch':
             launch.run(project_root, args.port)
     except KeyboardInterrupt:
