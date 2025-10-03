@@ -273,11 +273,13 @@
             // Remove existing edge descriptions
             document.querySelectorAll('.edge-desc').forEach(el => el.remove());
 
-            // URL encode to handle slashes in paths
-            const encodedSource = encodeURIComponent(source);
-            const encodedTarget = encodeURIComponent(target);
+            // Use query parameters instead of path segments to avoid Flask routing issues
+            const params = new URLSearchParams({
+                source: source,
+                target: target
+            });
 
-            fetch(`/api/edge/${encodedSource}/${encodedTarget}`)
+            fetch(`/api/edge?${params}`)
                 .then(r => r.json())
                 .then(data => {
                     const desc = document.createElement('div');

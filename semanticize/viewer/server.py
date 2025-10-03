@@ -58,30 +58,37 @@ def create_app(project_root: Path):
 
         return jsonify(result)
 
-    @app.route('/api/edge/<path:source>/<path:target>')
-    def get_edge(source, target):
+    @app.route('/api/edge')
+    def get_edge():
         """Get edge documentation."""
+        from flask import request
+
         result = {
             'technical': None,
             'developer': None,
             'executive': None
         }
 
-        # URL decode the paths
-        source = unquote(source)
-        target = unquote(target)
+        # Get paths from query parameters
+        source = request.args.get('source', '')
+        target = request.args.get('target', '')
+
+        if not source or not target:
+            return jsonify(result)
 
         source_path = Path(source)
         target_path = Path(target)
 
         for level in ['technical', 'developer', 'executive']:
             edge_path = get_edge_path(app.config['SEMANTICIZE_DIR'], source_path, target_path, level)
-            print(f"Looking for edge: {edge_path}")
-            print(f"Exists: {edge_path.exists()}")
+            print(f"[DEBUG] Looking for: {edge_path.name}")
+            print(f"[DEBUG] Full path: {edge_path}")
+            print(f"[DEBUG] Exists: {edge_path.exists()}")
             if edge_path.exists():
                 with open(edge_path, 'r', encoding='utf-8') as f:
                     md_content = f.read()
                     result[level] = markdown.markdown(md_content, extensions=['fenced_code', 'tables'])
+                    print(f"[DEBUG] Loaded {level} edge doc")
 
         return jsonify(result)
 
@@ -125,11 +132,16 @@ def get_doc_path(semanticize_dir: Path, file_path: Path, level: str) -> Path:
 def get_edge_path(semanticize_dir: Path, source: Path, target: Path, level: str) -> Path:
     """Get edge documentation path."""
     # Convert paths: backend/course_grouping_service.py -> backend.course_grouping_service.py
-    source_str = str(source).replace('/', '.')
-    target_str = str(target).replace('/', '.')
+    # Use posix path separator for consistency
+    source_str = str(source).replace('/', '.').replace('\\', '.')
+    target_str = str(target).replace('/', '.').replace('\\', '.')
+
+    print(f"[DEBUG get_edge_path] source={source}, source_str={source_str}")
+    print(f"[DEBUG get_edge_path] target={target}, target_str={target_str}")
 
     # Edge files are named: source--TO--target.level.md
     edge_name = f"{source_str}--TO--{target_str}.{level}.md"
+    print(f"[DEBUG get_edge_path] edge_name={edge_name}")
     return semanticize_dir / 'edges' / edge_name
 
 
