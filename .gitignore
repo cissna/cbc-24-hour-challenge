@@ -1,2 +1,4 @@
 .env
 test_api.py
+
+__pycache__/
