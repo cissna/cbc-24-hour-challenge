@@ -1,0 +1,10 @@
+- [ ] change repo name
+- [ ] figure out a better way to think about dependencies
+  - [ ] obviously, allow more languages
+  - [ ] identify ways to deal with things like APIs connecting frontend/backend code
+    - [ ] what else?
+- [ ] test update functionality
+  - [ ] think about how updates are detected and acted upon (idk how code currently does this)
+- [ ] think about how what information retrieval looks like
+- [ ] think about what MCP integration looks like
+- [ ] think about what other scaffolding this needs to be effective to assist in agentic coding
