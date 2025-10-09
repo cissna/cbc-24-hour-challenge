@@ -169,6 +169,6 @@ to complete any missing documentation.
 
 ## Development
 
-This project was created for the CBC 24-hour challenge.
+This project was created for the JHU Claude Builder Club 48-hour challenge, and coded largely by Claude.
 
 See [MVP_PRD.md](MVP_PRD.md) for full product requirements.
